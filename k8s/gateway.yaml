@@ -1,9 +1,11 @@
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: mcp-service-restaurant-gatewayclass
 spec:
   controllerName: gateway.envoyproxy.io/gatewayclass-controller
+
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -13,28 +15,42 @@ metadata:
 spec:
   gatewayClassName: mcp-service-restaurant-gatewayclass
   listeners:
-  - name: http
-    protocol: HTTP
-    port: 80
-    allowedRoutes:
-      namespaces:
-        from: Same
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: api-vishalk17.kavish.world
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: api-vishalk17-kavish-world-tls   # You will manually create this secret
+      allowedRoutes:
+        namespaces:
+          from: All
+
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  name: mcp-service-restaurant-httproute
+  name: mcp-service-restaurant-route
   namespace: default
 spec:
   parentRefs:
-  - name: mcp-service-restaurant-gateway
+    - name: mcp-service-restaurant-gateway
   hostnames:
-  - "vishalk17.kavish.world"
+    - "api-vishalk17.kavish.world"
   rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /mcp
-    backendRefs:
-    - name: mcp-service-restaurant
-      port: 80
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /mcp
+      backendRefs:
+        - name: mcp-service-restaurant
+          port: 80
+
