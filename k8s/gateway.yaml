@@ -34,35 +34,33 @@ spec:
         namespaces:
           from: All
 
-# ---
-# apiVersion: gateway.networking.k8s.io/v1
-# kind: HTTPRoute
-# metadata:
-#   name: mcp-service-restaurant-route
-#   namespace: default
-# spec:
-#   parentRefs:
-#     - name: mcp-service-restaurant-gateway
-#   hostnames:
-#     - "api-vishalk17.kavish.world"
-#   rules:
-#     - matches:
-#         - path:
-#             type: PathPrefix
-#             value: /mcp
-#       backendRefs:
-#         - name: mcp-service-restaurant
-#           port: 80
 ---
 apiVersion: gateway.networking.k8s.io/v1
-kind: TCPRoute
+kind: HTTPRoute
 metadata:
-  name: mcp-ws-route
+  name: mcp-service-restaurant-route
+  namespace: default
 spec:
   parentRefs:
     - name: mcp-service-restaurant-gateway
+  hostnames:
+    - "api-vishalk17.kavish.world"
   rules:
-    - backendRefs:
+    # Route for /health endpoint
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /health
+      backendRefs:
+        - name: mcp-service-restaurant
+          port: 80
+    
+    # Route for /mcp endpoint (MCP with SSE transport)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /mcp
+      backendRefs:
         - name: mcp-service-restaurant
           port: 80
 
