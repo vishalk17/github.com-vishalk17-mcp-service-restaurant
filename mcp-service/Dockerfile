@@ -17,7 +17,7 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -o mcp-api ./cmd/api
+RUN CGO_ENABLED=1 GOOS=linux go build -o mcp-restaurant-api ./cmd/api
 
 # Final stage
 FROM alpine:latest
@@ -28,10 +28,10 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the binary from builder stage
-COPY --from=builder /app/mcp-api .
+COPY --from=builder /app/mcp-restaurant-api .
 
 # Expose port
 EXPOSE 8080
 
 # Run the application
-CMD ["./mcp-api"]
+CMD ["./mcp-restaurant-api"]

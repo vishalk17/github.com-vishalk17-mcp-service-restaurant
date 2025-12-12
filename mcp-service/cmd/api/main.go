@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
-	"github.com/vishalk17/mcp-service/internal/handlers"
-	"github.com/vishalk17/mcp-service/internal/storage"
+	"github.com/vishalk17/mcp-service-restaurant/internal/handlers"
+	"github.com/vishalk17/mcp-service-restaurant/internal/storage"
 )
 
 func main() {

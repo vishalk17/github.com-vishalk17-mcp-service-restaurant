@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/vishalk17/mcp-service/internal/models"
+	"github.com/vishalk17/mcp-service-restaurant/internal/models"
 	_ "github.com/lib/pq"
 )
 

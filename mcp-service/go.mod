@@ -1,4 +1,4 @@
-module github.com/vishalk17/mcp-service
+module github.com/vishalk17/mcp-service-restaurant
 
 go 1.21
 
