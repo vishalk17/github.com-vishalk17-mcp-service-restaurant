@@ -35,24 +35,52 @@ func main() {
 	// Health check endpoint
 	router.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
 
-	// Main MCP endpoint group
-	api := router.PathPrefix("/mcp").Subrouter()
-
-	// Restaurant routes
-	api.HandleFunc("/restaurants", handlers.GetAllRestaurants).Methods("GET")
-	api.HandleFunc("/restaurants", handlers.CreateRestaurant).Methods("POST")
-	api.HandleFunc("/restaurants/{id}", handlers.GetRestaurantByID).Methods("GET")
-	api.HandleFunc("/restaurants/{id}", handlers.UpdateRestaurant).Methods("PUT")
-	api.HandleFunc("/restaurants/{id}", handlers.DeleteRestaurant).Methods("DELETE")
+	// Restaurant routes (at root level, gateway will add /api prefix)
+	router.HandleFunc("/restaurants", handlers.GetAllRestaurants).Methods("GET")
+	router.HandleFunc("/restaurants", handlers.CreateRestaurant).Methods("POST")
+	router.HandleFunc("/restaurants/{id}", handlers.GetRestaurantByID).Methods("GET")
+	router.HandleFunc("/restaurants/{id}", handlers.UpdateRestaurant).Methods("PUT")
+	router.HandleFunc("/restaurants/{id}", handlers.DeleteRestaurant).Methods("DELETE")
 
 	// Menu routes - nested under restaurant
-	api.HandleFunc("/restaurants/{id}/menu", handlers.GetMenuByRestaurantID).Methods("GET")
-	api.HandleFunc("/restaurants/{id}/menu", handlers.AddMenuItem).Methods("POST")
+	router.HandleFunc("/restaurants/{id}/menu", handlers.GetMenuByRestaurantID).Methods("GET")
+	router.HandleFunc("/restaurants/{id}/menu", handlers.AddMenuItem).Methods("POST")
 
 	// Order routes
-	api.HandleFunc("/orders", handlers.GetAllOrders).Methods("GET")
-	api.HandleFunc("/orders", handlers.CreateOrder).Methods("POST")
-	api.HandleFunc("/orders/{id}", handlers.GetOrderByID).Methods("GET")
+	router.HandleFunc("/orders", handlers.GetAllOrders).Methods("GET")
+	router.HandleFunc("/orders", handlers.CreateOrder).Methods("POST")
+	router.HandleFunc("/orders/{id}", handlers.GetOrderByID).Methods("GET")
+
+	// Create a custom ServeMux to handle the MCP WebSocket endpoint at the server level
+	mainMux := http.NewServeMux()
+
+	// Handle MCP WebSocket endpoint with custom handler to ensure proper upgrade
+	// This is registered BEFORE the router, so it takes priority
+	mainMux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+		// Check if this is a WebSocket upgrade request
+		if r.Header.Get("Connection") == "Upgrade" && r.Header.Get("Upgrade") == "websocket" {
+			// This will be handled by the existing MCPWebSocketHandler
+			handlers.MCPWebSocketHandler(w, r)
+		} else {
+			// For any other request to /mcp, return a method not allowed error
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Handle MCP with trailing slash as well
+	mainMux.HandleFunc("/mcp/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Connection") == "Upgrade" && r.Header.Get("Upgrade") == "websocket" {
+			handlers.MCPWebSocketHandler(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Add health check at root
+	mainMux.Handle("/health", http.HandlerFunc(handlers.HealthCheck))
+
+	// Add all other routes through router (no prefix stripping needed)
+	mainMux.Handle("/", router)
 
 	// Server configuration
 	port := os.Getenv("PORT")
@@ -62,7 +90,7 @@ func main() {
 
 	fmt.Printf("MCP Service starting on port %s\n", port)
 	fmt.Printf("Database connected successfully\n")
-	
-	// Start server
-	log.Fatal(http.ListenAndServe(":"+port, router))
+
+	// Start server with the custom multiplexer
+	log.Fatal(http.ListenAndServe(":"+port, mainMux))
 }

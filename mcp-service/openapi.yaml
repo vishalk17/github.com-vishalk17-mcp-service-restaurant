@@ -1,0 +1,272 @@
+openapi: 3.0.0
+info:
+  title: Restaurant Management API
+  description: API for managing Indian restaurants, menus, and orders
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api
+    description: Local development server
+
+paths:
+  /restaurants:
+    get:
+      operationId: getRestaurants
+      summary: Get all restaurants
+      description: Returns a list of all Indian restaurants
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Restaurant'
+    
+    post:
+      operationId: createRestaurant
+      summary: Create a new restaurant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestaurantInput'
+      responses:
+        '201':
+          description: Restaurant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Restaurant'
+
+  /restaurants/{id}:
+    get:
+      operationId: getRestaurant
+      summary: Get restaurant by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Restaurant'
+
+  /restaurants/{id}/menu:
+    get:
+      operationId: getMenu
+      summary: Get restaurant menu
+      description: Get menu items for a specific restaurant with dietary info
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MenuItem'
+
+  /orders:
+    get:
+      operationId: getOrders
+      summary: Get all orders
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+    
+    post:
+      operationId: createOrder
+      summary: Create a new order
+      description: Create order with automatic GST calculation (5%)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderInput'
+      responses:
+        '201':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      summary: Get order by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+
+components:
+  schemas:
+    Restaurant:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        address:
+          type: string
+        phone_number:
+          type: string
+        cuisine_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    RestaurantInput:
+      type: object
+      required:
+        - name
+        - address
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        phone_number:
+          type: string
+        cuisine_type:
+          type: string
+          default: "Indian"
+
+    MenuItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        restaurant_id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        category:
+          type: string
+        dietary_type:
+          type: string
+          enum: [vegetarian, non_vegetarian, vegan, jain_friendly]
+        spice_level:
+          type: string
+          enum: [mild, medium, hot, very_hot]
+        available:
+          type: boolean
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        restaurant_id:
+          type: integer
+        customer_name:
+          type: string
+        customer_phone:
+          type: string
+        order_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        status:
+          type: string
+        total_amount:
+          type: number
+        tax_amount:
+          type: number
+        discount:
+          type: number
+        final_amount:
+          type: number
+        payment_status:
+          type: string
+        payment_method:
+          type: string
+        billing_address:
+          type: string
+
+    OrderInput:
+      type: object
+      required:
+        - restaurant_id
+        - customer_name
+        - order_items
+      properties:
+        restaurant_id:
+          type: integer
+        customer_name:
+          type: string
+        customer_phone:
+          type: string
+        order_items:
+          type: array
+          items:
+            type: object
+            properties:
+              menu_item_id:
+                type: integer
+              quantity:
+                type: integer
+              price:
+                type: number
+              notes:
+                type: string
+        discount:
+          type: number
+          default: 0
+        payment_method:
+          type: string
+          enum: [cash, card, upi, digital_wallet]
+        billing_address:
+          type: string
+
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        menu_item_id:
+          type: integer
+        quantity:
+          type: integer
+        price:
+          type: number
+        notes:
+          type: string
+        subtotal:
+          type: number

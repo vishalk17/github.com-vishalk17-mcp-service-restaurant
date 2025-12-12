@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "restaurant-server": {
+      "command": "/home/vishalk17/mcp-service/mcp-service/mcp-server",
+      "env": {
+        "DATABASE_URL": "host=localhost port=5432 user=postgres password=postgres dbname=mcp_restaurant sslmode=disable"
+      }
+    }
+  }
+}

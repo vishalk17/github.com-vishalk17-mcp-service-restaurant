@@ -16,8 +16,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=1 GOOS=linux go build -o mcp-restaurant-api ./cmd/api
+# Build the remote MCP server with SSE transport
+RUN CGO_ENABLED=1 GOOS=linux go build -o mcp-restaurant-api ./cmd/remote-mcp
 
 # Final stage
 FROM alpine:latest

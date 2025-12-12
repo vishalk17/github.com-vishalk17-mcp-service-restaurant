@@ -234,9 +234,9 @@ func (db *DB) CreateRestaurant(restaurant *models.Restaurant) error {
 	return err
 }
 
-func (db *DB) UpdateRestaurant(id int, restaurant *models.Restaurant) error {
-	query := `UPDATE restaurants SET name = $1, address = $2, phone_number = $3, cuisine_type = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING id, created_at`
-	err := db.QueryRow(query, restaurant.Name, restaurant.Address, restaurant.PhoneNumber, restaurant.CuisineType, id).Scan(&restaurant.ID, &restaurant.CreatedAt)
+func (db *DB) UpdateRestaurant(restaurant *models.Restaurant) error {
+	query := `UPDATE restaurants SET name = $1, address = $2, phone_number = $3, cuisine_type = $4 WHERE id = $5`
+	_, err := db.Exec(query, restaurant.Name, restaurant.Address, restaurant.PhoneNumber, restaurant.CuisineType, restaurant.ID)
 	return err
 }
 
@@ -321,6 +321,17 @@ func (db *DB) CreateMenuItem(menuItem *models.MenuItem) error {
 		menuItem.SpiceLevel,
 		menuItem.Available,
 	).Scan(&menuItem.ID, &menuItem.CreatedAt)
+	return err
+}
+
+func (db *DB) UpdateMenuItem(menuItem *models.MenuItem) error {
+	query := `UPDATE menu_items SET name = $1, description = $2, price = $3, category = $4, dietary_type = $5, spice_level = $6, available = $7 WHERE id = $8`
+	_, err := db.Exec(query, menuItem.Name, menuItem.Description, menuItem.Price, menuItem.Category, menuItem.DietaryType, menuItem.SpiceLevel, menuItem.Available, menuItem.ID)
+	return err
+}
+
+func (db *DB) DeleteMenuItem(id int) error {
+	_, err := db.Exec("DELETE FROM menu_items WHERE id = $1", id)
 	return err
 }
 
@@ -461,6 +472,18 @@ func (db *DB) CreateOrder(order *models.Order) error {
 	}
 
 	return tx.Commit()
+}
+
+func (db *DB) UpdateOrder(order *models.Order) error {
+	query := `UPDATE orders SET status = $1, payment_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`
+	_, err := db.Exec(query, order.Status, order.PaymentStatus, order.ID)
+	return err
+}
+
+func (db *DB) DeleteOrder(id int) error {
+	// Order items will be deleted automatically due to ON DELETE CASCADE
+	_, err := db.Exec("DELETE FROM orders WHERE id = $1", id)
+	return err
 }
 
 func (db *DB) GetOrderItemsByOrderID(orderID int) ([]models.OrderItem, error) {
