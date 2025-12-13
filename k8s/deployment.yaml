@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: mcp-restaurant-api
-        image: ghcr.io/vishalk17/mcp-service-restaurant:0.39
+        image: ghcr.io/vishalk17/mcp-service-restaurant:0.45
         ports:
         - containerPort: 8080
         env:
@@ -101,6 +101,8 @@ spec:
             secretKeyRef:
               name: oauth-secret
               key: PORT
+        - name: LOG_LEVEL
+          value: "debug"
         readinessProbe:
           httpGet:
             path: /health

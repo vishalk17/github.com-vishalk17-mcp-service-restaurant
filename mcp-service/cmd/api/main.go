@@ -7,6 +7,7 @@ import (
 
 	"github.com/vishalk17/mcp-service-restaurant/internal/config"
 	"github.com/vishalk17/mcp-service-restaurant/internal/database"
+	"github.com/vishalk17/mcp-service-restaurant/internal/handlers"
 	"github.com/vishalk17/mcp-service-restaurant/internal/middleware"
 	"github.com/vishalk17/mcp-service-restaurant/internal/oauth"
 )
@@ -70,7 +71,18 @@ func main() {
 		w.Write([]byte(`{"status":"healthy"}`))
 	})
 
+	// Restaurant API endpoints (protected by OAuth middleware)
+	restaurantHandler := handlers.NewRestaurantHandler(db.DB)
+	mux.HandleFunc("/api/restaurants", restaurantHandler.ListRestaurants)
+	mux.HandleFunc("/api/restaurants/get", restaurantHandler.GetRestaurant)
+	mux.HandleFunc("/api/restaurants/menu", restaurantHandler.GetMenu)
+
+	// MCP JSON-RPC endpoint (protected by OAuth middleware)
+	mcpHandler := handlers.NewMCPHandler(db.DB)
+	mux.HandleFunc("/mcp", mcpHandler.HandleMCP)
+
 	log.Println("✅ OAuth routes registered")
+	log.Println("✅ Restaurant API routes registered")
 	log.Println("")
 	log.Println("📍 OAuth Endpoints:")
 	log.Printf("   Authorization: %s/oauth/authorize", cfg.Server.OAuthServerURL)
@@ -78,9 +90,14 @@ func main() {
 	log.Printf("   Register: %s/oauth/register", cfg.Server.OAuthServerURL)
 	log.Printf("   Metadata: %s/.well-known/oauth-authorization-server", cfg.Server.OAuthServerURL)
 	log.Println("")
+	log.Println("📍 API Endpoints:")
+	log.Printf("   List Restaurants: %s/api/restaurants", cfg.Server.OAuthServerURL)
+	log.Printf("   Get Restaurant: %s/api/restaurants/get?id={id}", cfg.Server.OAuthServerURL)
+	log.Printf("   Get Menu: %s/api/restaurants/menu?restaurant_id={id}", cfg.Server.OAuthServerURL)
+	log.Println("")
 
-	// Apply middleware (CORS, then Auth)
-	handler := middleware.CORSMiddleware(authMiddleware.Middleware(mux))
+	// Apply middleware (Logging -> CORS -> Auth)
+	handler := middleware.LoggingMiddleware(middleware.CORSMiddleware(authMiddleware.Middleware(mux)))
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
