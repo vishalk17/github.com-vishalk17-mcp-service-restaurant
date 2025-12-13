@@ -17,17 +17,90 @@ spec:
     spec:
       containers:
       - name: mcp-restaurant-api
-        image: ghcr.io/vishalk17/mcp-service-restaurant:v0.13
+        image: ghcr.io/vishalk17/mcp-service-restaurant:0.39
         ports:
         - containerPort: 8080
         env:
-        - name: PORT
-          value: "8080"
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
               name: postgres-secret
               key: url
+        - name: OAUTH_SERVER_URL
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: OAUTH_SERVER_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: JWT_SECRET
+        - name: ACCESS_TOKEN_LIFETIME
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: ACCESS_TOKEN_LIFETIME
+        - name: REFRESH_TOKEN_LIFETIME
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: REFRESH_TOKEN_LIFETIME
+        - name: DEFAULT_ADMIN_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: DEFAULT_ADMIN_EMAIL
+        - name: DEFAULT_ADMIN_NAME
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: DEFAULT_ADMIN_NAME
+        - name: OAUTH_PROVIDER
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: OAUTH_PROVIDER
+        - name: OAUTH_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: OAUTH_CLIENT_ID
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: OAUTH_CLIENT_SECRET
+        - name: OAUTH_AUTH_URL
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: OAUTH_AUTH_URL
+        - name: OAUTH_TOKEN_URL
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: OAUTH_TOKEN_URL
+        - name: OAUTH_USERINFO_URL
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: OAUTH_USERINFO_URL
+        - name: OAUTH_SCOPES
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: OAUTH_SCOPES
+        - name: HOST
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: HOST
+        - name: PORT
+          valueFrom:
+            secretKeyRef:
+              name: oauth-secret
+              key: PORT
         readinessProbe:
           httpGet:
             path: /health

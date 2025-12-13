@@ -4,93 +4,93 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
-	"github.com/gorilla/mux"
-	"github.com/vishalk17/mcp-service-restaurant/internal/handlers"
-	"github.com/vishalk17/mcp-service-restaurant/internal/storage"
+	"github.com/vishalk17/mcp-service-restaurant/internal/config"
+	"github.com/vishalk17/mcp-service-restaurant/internal/database"
+	"github.com/vishalk17/mcp-service-restaurant/internal/middleware"
+	"github.com/vishalk17/mcp-service-restaurant/internal/oauth"
 )
 
 func main() {
-	// Get database connection string from environment variable
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		// Fallback to local development connection string
-		dbURL = "host=localhost port=5432 user=postgres password=postgres dbname=mcp_restaurant sslmode=disable"
+	log.Println("🚀 Starting MCP Service with OAuth...")
+
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal("Failed to load configuration:", err)
 	}
 
-	// Initialize database
-	db, err := storage.NewDB(dbURL)
+	if err := cfg.Validate(); err != nil {
+		log.Fatal("Invalid configuration:", err)
+	}
+
+	log.Printf("✅ Configuration loaded successfully")
+	log.Printf("   Provider: %s", cfg.OAuth.Provider)
+	log.Printf("   OAuth Server: %s", cfg.Server.OAuthServerURL)
+	log.Printf("   Default Admin: %s", cfg.Server.DefaultAdminEmail)
+
+	// Connect to database
+	db, err := database.Connect(cfg.Database)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer db.Close()
 
-	// Initialize handlers
-	handlers := handlers.NewHandlers(db)
+	// Initialize OAuth components
+	oauthStorage := oauth.NewStorage(db.DB)
+	oauthServer := oauth.NewServer(cfg, oauthStorage)
+	authMiddleware := oauth.NewAuthMiddleware(
+		oauthServer.GetTokenManager(),
+		nil, // Use default public paths
+	)
 
-	// Create router
-	router := mux.NewRouter()
+	log.Println("✅ OAuth server initialized")
 
-	// Health check endpoint
-	router.HandleFunc("/health", handlers.HealthCheck).Methods("GET")
+	// Create main router
+	mux := http.NewServeMux()
 
-	// Restaurant routes (at root level, gateway will add /api prefix)
-	router.HandleFunc("/restaurants", handlers.GetAllRestaurants).Methods("GET")
-	router.HandleFunc("/restaurants", handlers.CreateRestaurant).Methods("POST")
-	router.HandleFunc("/restaurants/{id}", handlers.GetRestaurantByID).Methods("GET")
-	router.HandleFunc("/restaurants/{id}", handlers.UpdateRestaurant).Methods("PUT")
-	router.HandleFunc("/restaurants/{id}", handlers.DeleteRestaurant).Methods("DELETE")
+	// OAuth endpoints (public)
+	mux.HandleFunc("/oauth/authorize", oauthServer.HandleAuthorize)
+	mux.HandleFunc("/oauth/callback", oauthServer.HandleCallback)
+	mux.HandleFunc("/oauth/token", oauthServer.HandleToken)
+	mux.HandleFunc("/oauth/register", oauthServer.HandleRegister)
+	mux.HandleFunc("/oauth/userinfo", oauthServer.HandleUserInfo)
+	mux.HandleFunc("/oauth/introspect", oauthServer.HandleIntrospect)
+	mux.HandleFunc("/oauth/revoke", oauthServer.HandleRevoke)
 
-	// Menu routes - nested under restaurant
-	router.HandleFunc("/restaurants/{id}/menu", handlers.GetMenuByRestaurantID).Methods("GET")
-	router.HandleFunc("/restaurants/{id}/menu", handlers.AddMenuItem).Methods("POST")
+	// Well-known endpoints (public)
+	mux.HandleFunc("/.well-known/oauth-authorization-server", oauthServer.HandleOAuthMetadata)
+	mux.HandleFunc("/.well-known/openid-configuration", oauthServer.HandleOAuthMetadata)
+	mux.HandleFunc("/.well-known/jwks.json", oauthServer.HandleJWKS)
 
-	// Order routes
-	router.HandleFunc("/orders", handlers.GetAllOrders).Methods("GET")
-	router.HandleFunc("/orders", handlers.CreateOrder).Methods("POST")
-	router.HandleFunc("/orders/{id}", handlers.GetOrderByID).Methods("GET")
-
-	// Create a custom ServeMux to handle the MCP WebSocket endpoint at the server level
-	mainMux := http.NewServeMux()
-
-	// Handle MCP WebSocket endpoint with custom handler to ensure proper upgrade
-	// This is registered BEFORE the router, so it takes priority
-	mainMux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
-		// Check if this is a WebSocket upgrade request
-		if r.Header.Get("Connection") == "Upgrade" && r.Header.Get("Upgrade") == "websocket" {
-			// This will be handled by the existing MCPWebSocketHandler
-			handlers.MCPWebSocketHandler(w, r)
-		} else {
-			// For any other request to /mcp, return a method not allowed error
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
+	// Health check (public)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"healthy"}`))
 	})
 
-	// Handle MCP with trailing slash as well
-	mainMux.HandleFunc("/mcp/", func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Connection") == "Upgrade" && r.Header.Get("Upgrade") == "websocket" {
-			handlers.MCPWebSocketHandler(w, r)
-		} else {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-	})
+	log.Println("✅ OAuth routes registered")
+	log.Println("")
+	log.Println("📍 OAuth Endpoints:")
+	log.Printf("   Authorization: %s/oauth/authorize", cfg.Server.OAuthServerURL)
+	log.Printf("   Token: %s/oauth/token", cfg.Server.OAuthServerURL)
+	log.Printf("   Register: %s/oauth/register", cfg.Server.OAuthServerURL)
+	log.Printf("   Metadata: %s/.well-known/oauth-authorization-server", cfg.Server.OAuthServerURL)
+	log.Println("")
 
-	// Add health check at root
-	mainMux.Handle("/health", http.HandlerFunc(handlers.HealthCheck))
+	// Apply middleware (CORS, then Auth)
+	handler := middleware.CORSMiddleware(authMiddleware.Middleware(mux))
 
-	// Add all other routes through router (no prefix stripping needed)
-	mainMux.Handle("/", router)
+	// Start server
+	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
+	log.Printf("🌐 Server listening on %s", addr)
+	log.Printf("")
+	log.Printf("✨ MCP Service with OAuth is ready!")
+	log.Printf("   Compatible with ChatGPT Desktop and Claude Desktop")
+	log.Printf("")
 
-	// Server configuration
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	if err := http.ListenAndServe(addr, handler); err != nil {
+		log.Fatal("Server failed:", err)
 	}
-
-	fmt.Printf("MCP Service starting on port %s\n", port)
-	fmt.Printf("Database connected successfully\n")
-
-	// Start server with the custom multiplexer
-	log.Fatal(http.ListenAndServe(":"+port, mainMux))
 }

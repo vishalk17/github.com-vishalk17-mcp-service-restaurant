@@ -1,5 +1,5 @@
 # Multi-stage build
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Install ca-certificates for HTTPS requests
 RUN apk add --no-cache ca-certificates git gcc musl-dev
@@ -16,8 +16,8 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the remote MCP server with SSE transport
-RUN CGO_ENABLED=1 GOOS=linux go build -o mcp-restaurant-api ./cmd/remote-mcp
+# Build the OAuth MCP API
+RUN CGO_ENABLED=1 GOOS=linux go build -o oauth-mcp ./cmd/api
 
 # Final stage
 FROM alpine:latest
@@ -28,10 +28,10 @@ RUN apk --no-cache add ca-certificates
 WORKDIR /root/
 
 # Copy the binary from builder stage
-COPY --from=builder /app/mcp-restaurant-api .
+COPY --from=builder /app/oauth-mcp .
 
 # Expose port
 EXPOSE 8080
 
 # Run the application
-CMD ["./mcp-restaurant-api"]
+CMD ["./oauth-mcp"]
