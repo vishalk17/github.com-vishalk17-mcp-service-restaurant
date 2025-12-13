@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-oauth-config
+  namespace: default
+data:
+  # Server Configuration (non-sensitive)
+  HOST: "0.0.0.0"
+  PORT: "8080"
+  
+  # Token Lifetimes (non-sensitive)
+  ACCESS_TOKEN_LIFETIME: "604800"    # 7 days
+  REFRESH_TOKEN_LIFETIME: "2592000"  # 30 days
+  
+  # AWS Cognito OAuth Provider (non-sensitive)
+  OAUTH_PROVIDER: "cognito"
+  OAUTH_AUTH_URL: "https://ap-south-1fewx16t6r.auth.ap-south-1.amazoncognito.com/oauth2/authorize"
+  OAUTH_TOKEN_URL: "https://ap-south-1fewx16t6r.auth.ap-south-1.amazoncognito.com/oauth2/token"
+  OAUTH_USERINFO_URL: "https://ap-south-1fewx16t6r.auth.ap-south-1.amazoncognito.com/oauth2/userInfo"
+  OAUTH_SCOPES: "openid,email,profile"
+  
+  # Logging
+  LOG_LEVEL: "info"

@@ -1262,31 +1262,241 @@ CMD ["./oauth-mcp"]
 
 ### Kubernetes
 
+#### Step 1: Create ConfigMap (Non-Sensitive)
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-oauth-config
+  namespace: default
+data:
+  # Server Configuration
+  HOST: "0.0.0.0"
+  PORT: "8080"
+  
+  # Token Lifetimes
+  ACCESS_TOKEN_LIFETIME: "604800"    # 7 days
+  REFRESH_TOKEN_LIFETIME: "2592000"  # 30 days
+  
+  # AWS Cognito OAuth Provider URLs
+  OAUTH_PROVIDER: "cognito"
+  OAUTH_AUTH_URL: "https://your-domain.auth.region.amazoncognito.com/oauth2/authorize"
+  OAUTH_TOKEN_URL: "https://your-domain.auth.region.amazoncognito.com/oauth2/token"
+  OAUTH_USERINFO_URL: "https://your-domain.auth.region.amazoncognito.com/oauth2/userInfo"
+  OAUTH_SCOPES: "openid,email,profile"
+  
+  # Logging
+  LOG_LEVEL: "info"
+```
+
+**Apply**:
+```bash
+kubectl apply -f mcp-oauth-config.yaml
+```
+
+#### Step 2: Create Secret (Sensitive - Encrypted)
+
+**🔒 NEVER commit secrets to git in plain text!**
+
+Use `kubectl create secret` to generate base64-encoded secrets:
+
+```bash
+kubectl create secret generic mcp-oauth-secrets \
+  --from-literal=OAUTH_SERVER_URL='https://api.yourdomain.com' \
+  --from-literal=JWT_SECRET='your-secure-jwt-secret-32-chars-minimum' \
+  --from-literal=OAUTH_CLIENT_ID='your-cognito-client-id' \
+  --from-literal=OAUTH_CLIENT_SECRET='your-cognito-client-secret' \
+  --from-literal=DEFAULT_ADMIN_EMAIL='admin@example.com' \
+  --from-literal=DEFAULT_ADMIN_NAME='Admin User' \
+  --namespace=default \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+This generates:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcp-oauth-secrets
+  namespace: default
+type: Opaque
+data:
+  OAUTH_SERVER_URL: <base64-encoded>
+  JWT_SECRET: <base64-encoded>
+  OAUTH_CLIENT_ID: <base64-encoded>
+  OAUTH_CLIENT_SECRET: <base64-encoded>
+  DEFAULT_ADMIN_EMAIL: <base64-encoded>
+  DEFAULT_ADMIN_NAME: <base64-encoded>
+```
+
+**What goes where?**
+
+| Type | Goes In | Examples |
+|------|---------|----------|
+| **Sensitive** | Secret (encrypted) | JWT_SECRET, OAUTH_CLIENT_SECRET, OAUTH_SERVER_URL, DATABASE_URL |
+| **Non-Sensitive** | ConfigMap (plain) | Provider URLs, timeouts, scopes, log levels |
+
+#### Step 3: Create Deployment
+
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mcp-oauth-service
+  name: mcp-service-restaurant
+  namespace: default
 spec:
-  replicas: 2
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-service-restaurant
   template:
+    metadata:
+      labels:
+        app: mcp-service-restaurant
     spec:
       containers:
-      - name: mcp-oauth
-        image: your-registry/mcp-oauth:latest
+      - name: mcp-restaurant-api
+        image: ghcr.io/yourname/mcp-service-restaurant:v0.55
+        ports:
+        - containerPort: 8080
         env:
-        - name: OAUTH_SERVER_URL
-          value: "https://api.yourdomain.com"
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: oauth-secrets
-              key: jwt-secret
+        # Database (Sensitive)
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: oauth-secrets
-              key: database-url
+              name: postgres-secret
+              key: url
+        
+        # Sensitive Secrets (from Secret)
+        - name: OAUTH_SERVER_URL
+          valueFrom:
+            secretKeyRef:
+              name: mcp-oauth-secrets
+              key: OAUTH_SERVER_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: mcp-oauth-secrets
+              key: JWT_SECRET
+        - name: OAUTH_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: mcp-oauth-secrets
+              key: OAUTH_CLIENT_ID
+        - name: OAUTH_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: mcp-oauth-secrets
+              key: OAUTH_CLIENT_SECRET
+        - name: DEFAULT_ADMIN_EMAIL
+          valueFrom:
+            secretKeyRef:
+              name: mcp-oauth-secrets
+              key: DEFAULT_ADMIN_EMAIL
+        - name: DEFAULT_ADMIN_NAME
+          valueFrom:
+            secretKeyRef:
+              name: mcp-oauth-secrets
+              key: DEFAULT_ADMIN_NAME
+        
+        # Non-Sensitive Config (from ConfigMap)
+        - name: HOST
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: HOST
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: PORT
+        - name: ACCESS_TOKEN_LIFETIME
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: ACCESS_TOKEN_LIFETIME
+        - name: REFRESH_TOKEN_LIFETIME
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: REFRESH_TOKEN_LIFETIME
+        - name: OAUTH_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: OAUTH_PROVIDER
+        - name: OAUTH_AUTH_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: OAUTH_AUTH_URL
+        - name: OAUTH_TOKEN_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: OAUTH_TOKEN_URL
+        - name: OAUTH_USERINFO_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: OAUTH_USERINFO_URL
+        - name: OAUTH_SCOPES
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: OAUTH_SCOPES
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: mcp-oauth-config
+              key: LOG_LEVEL
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-service-restaurant
+  namespace: default
+spec:
+  selector:
+    app: mcp-service-restaurant
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: ClusterIP
+```
+
+**Deploy**:
+```bash
+kubectl apply -f deployment.yaml
+kubectl rollout status deployment/mcp-service-restaurant
+```
+
+**Verify**:
+```bash
+# Check pods are running
+kubectl get pods -l app=mcp-service-restaurant
+
+# Check logs
+kubectl logs -l app=mcp-service-restaurant --tail=50
+
+# Test health endpoint
+kubectl port-forward svc/mcp-service-restaurant 8080:80
+curl http://localhost:8080/health
 ```
 
 ### Monitoring
