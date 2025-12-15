@@ -55,23 +55,4 @@ spec:
         - name: mcp-service-restaurant
           port: 80
 
-    # Route for /health endpoint
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /health
-      backendRefs:
-        - name: mcp-service-restaurant
-          port: 80
-
-    # Route for /mcp endpoint (MCP with SSE transport)
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /mcp
-      backendRefs:
-        - name: mcp-service-restaurant
-          port: 80
-
-
 
