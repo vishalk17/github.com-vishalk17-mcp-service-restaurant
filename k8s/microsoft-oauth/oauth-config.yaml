@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-oauth-config
+  namespace: default
+data:
+  # Server Configuration (non-sensitive)
+  HOST: "0.0.0.0"
+  PORT: "8080"
+  
+  # Token Lifetimes (non-sensitive)
+  ACCESS_TOKEN_LIFETIME: "604800"    # 7 days
+  REFRESH_TOKEN_LIFETIME: "2592000"  # 30 days
+  
+  # Microsoft Azure AD OAuth Provider (non-sensitive)
+  OAUTH_PROVIDER: "microsoft"
+  OAUTH_AUTH_URL: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
+  OAUTH_TOKEN_URL: "https://login.microsoftonline.com/common/oauth2/v2.0/token"
+  OAUTH_USERINFO_URL: "https://graph.microsoft.com/oidc/userinfo"
+  OAUTH_SCOPES: "openid,profile,email"
+  
+  # Logging
+  LOG_LEVEL: "info"

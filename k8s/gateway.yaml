@@ -25,11 +25,10 @@ spec:
     - name: https
       protocol: HTTPS
       port: 443
-      hostname: api-vishalk17.kavish.world
       tls:
         mode: Terminate
         certificateRefs:
-          - name: api-vishalk17-kavish-world-tls
+          - name: vishalk17.cloudwithme.dev-tls
       allowedRoutes:
         namespaces:
           from: All
@@ -44,25 +43,15 @@ spec:
   parentRefs:
     - name: mcp-service-restaurant-gateway
   hostnames:
-    - "api-vishalk17.kavish.world"
+    - "vishalk17.cloudwithme.dev"
   rules:
-    # Route for /health endpoint
+    # Catch-all route for the root path and everything else
     - matches:
         - path:
             type: PathPrefix
-            value: /health
+            value: /
       backendRefs:
         - name: mcp-service-restaurant
           port: 80
-    
-    # Route for /mcp endpoint (MCP with SSE transport)
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /mcp
-      backendRefs:
-        - name: mcp-service-restaurant
-          port: 80
-
 
 
